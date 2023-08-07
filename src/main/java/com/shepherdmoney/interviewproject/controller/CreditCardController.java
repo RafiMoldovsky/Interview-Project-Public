@@ -3,12 +3,17 @@ package com.shepherdmoney.interviewproject.controller;
 import com.shepherdmoney.interviewproject.vo.request.AddCreditCardToUserPayload;
 import com.shepherdmoney.interviewproject.vo.request.UpdateBalancePayload;
 import com.shepherdmoney.interviewproject.vo.response.CreditCardView;
+import com.shepherdmoney.interviewproject.model.*;
+
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 import com.shepherdmoney.interviewproject.repository.UserRepository;
 import com.shepherdmoney.interviewproject.repository.CreditCardRepository;
 
@@ -38,12 +43,12 @@ public class CreditCardController {
         try{
             Optional<User> optionalUser = userRepository.findById(payload.getUserId());
             if(optionalUser.isEmpty()){
-                return ResponseEntity.notFound.build();
+                return ResponseEntity.notFound().build();
             }
 
             // if such a user exists, now create the credit card
-            CreditCard creditCard = new CreditCart();
-            creditCard.setIssuanceBank(payload.getIssuanceBank());
+            CreditCard creditCard = new CreditCard();
+            creditCard.setIssuanceBank(payload.getCardIssuanceBank());
             creditCard.setNumber(payload.getCardNumber());
 
             // Now add it to the appropriate user
@@ -64,9 +69,9 @@ public class CreditCardController {
         // TODO: return a list of all credit card associated with the given userId, using CreditCardView class
         //       if the user has no credit card, return empty list, never return null
         // COMPLETE
-        Optional<User> optionalUser = userRepository.findById(payload.getUserId());
+        Optional<User> optionalUser = userRepository.findById(userId);
         if(optionalUser.isEmpty()){
-            return ResponseEntity.notFound.build();
+            return ResponseEntity.notFound().build();
         }
         List<CreditCard> creditCards = optionalUser.get().getCreditCards();
 
@@ -76,6 +81,13 @@ public class CreditCardController {
 
         return ResponseEntity.ok(creditCardViews);
     }
+
+    // Helper function to convert credit card to creditCardView
+    private CreditCardView convertToCreditCardView(CreditCard creditCard) {
+        CreditCardView creditCardView = new CreditCardView(creditCard.getNumber(), creditCard.getIssuanceBank());
+        return creditCardView;
+    }
+
 
     @GetMapping("/credit-card:user-id")
     public ResponseEntity<Integer> getUserIdForCreditCard(@RequestParam String creditCardNumber) {
@@ -96,7 +108,7 @@ public class CreditCardController {
     }
 
     @PostMapping("/credit-card:update-balance")
-    public SomeEnityData postMethodName(@RequestBody UpdateBalancePayload[] payload) {
+    public ResponseEntity<String> postMethodName(@RequestBody UpdateBalancePayload[] payload) {
         //TODO: Given a list of transactions, update credit cards' balance history.
         //      For example: if today is 4/12, a credit card's balanceHistory is [{date: 4/12, balance: 110}, {date: 4/10, balance: 100}],
         //      Given a transaction of {date: 4/10, amount: 10}, the new balanceHistory is
@@ -107,17 +119,17 @@ public class CreditCardController {
         
         try {
             for (UpdateBalancePayload transaction : payload) {
-                Optional<CreditCard> optionalCreditCard = creditCardRepository.findByNumber(transaction.getCardNumber());
+                Optional<CreditCard> optionalCreditCard = creditCardRepository.findByNumber(transaction.getCreditCardNumber());
                 if (optionalCreditCard.isEmpty()) {
-                    return ResponseEntity.badRequest().body("Credit card with number " + transaction.getCardNumber() + " not found.");
+                    return ResponseEntity.badRequest().body("Credit card with number " + transaction.getCreditCardNumber() + " not found.");
                 }
 
                 CreditCard creditCard = optionalCreditCard.get();
 
                 // Create a new BalanceHistory entry for the transaction date and amount.
                 BalanceHistory balanceHistory = new BalanceHistory();
-                balanceHistory.setDate(transaction.getDate());
-                balanceHistory.setBalance(transaction.getAmount());
+                balanceHistory.setDate(transaction.getTransactionTime());
+                balanceHistory.setBalance(transaction.getTransactionAmount());
 
                 // Add the new balance history entry to the credit card's list of balance history.
                 List<BalanceHistory> balanceHistoryList = creditCard.getBalanceHistory();
