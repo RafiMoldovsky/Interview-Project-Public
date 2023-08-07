@@ -28,6 +28,8 @@ public class BalanceHistory {
 
     private double balance;
 
+    private String creditCardID;
+
     @ManyToOne(fetch = FetchType.LAZY)
     private CreditCard creditCard;
     

@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 import com.shepherdmoney.interviewproject.repository.UserRepository;
 import com.shepherdmoney.interviewproject.repository.CreditCardRepository;
 
+import java.util.ArrayList;
 
 
 @RestController
@@ -41,9 +42,10 @@ public class CreditCardController {
         //       Do not worry about validating the card number, assume card number could be any arbitrary format and length
         // COMPLETE
         try{
-            Optional<User> optionalUser = userRepository.findById(payload.getUserId());
-            if(optionalUser.isEmpty()){
-                return ResponseEntity.notFound().build();
+            User user = userRepository.findById(payload.getUserId()).orElse(null);
+            if(user == null){
+                // return 400 bad request 
+                return ResponseEntity.badRequest().build();
             }
 
             // if such a user exists, now create the credit card
@@ -52,7 +54,6 @@ public class CreditCardController {
             creditCard.setNumber(payload.getCardNumber());
 
             // Now add it to the appropriate user
-            User user = optionalUser.get();
             creditCard.setUser(user);
 
             // Now save the credit card in the database
@@ -69,11 +70,13 @@ public class CreditCardController {
         // TODO: return a list of all credit card associated with the given userId, using CreditCardView class
         //       if the user has no credit card, return empty list, never return null
         // COMPLETE
-        Optional<User> optionalUser = userRepository.findById(userId);
-        if(optionalUser.isEmpty()){
-            return ResponseEntity.notFound().build();
+        User user = userRepository.findById(userId).orElse(null);
+        if(user == null){
+            // return empty list - create it first
+            List<CreditCardView> emptyList = new ArrayList();
+            return ResponseEntity.ok(emptyList);
         }
-        List<CreditCard> creditCards = optionalUser.get().getCreditCards();
+        List<CreditCard> creditCards = user.getCreditCards();
 
         List<CreditCardView> creditCardViews = creditCards.stream()
                 .map(this::convertToCreditCardView)
@@ -123,6 +126,11 @@ public class CreditCardController {
                 if (optionalCreditCard.isEmpty()) {
                     return ResponseEntity.badRequest().body("Credit card with number " + transaction.getCreditCardNumber() + " not found.");
                 }
+                // Note, this makes it so that all credit card numbers are checked before proceeding with any
+                // This way, a full card update is void if one number is wrong - this simplifies re-entry
+            }
+            for (UpdateBalancePayload transaction : payload) {
+                Optional<CreditCard> optionalCreditCard = creditCardRepository.findByNumber(transaction.getCreditCardNumber());
 
                 CreditCard creditCard = optionalCreditCard.get();
 
@@ -130,6 +138,7 @@ public class CreditCardController {
                 BalanceHistory balanceHistory = new BalanceHistory();
                 balanceHistory.setDate(transaction.getTransactionTime());
                 balanceHistory.setBalance(transaction.getTransactionAmount());
+                balanceHistory.setCreditCardID(transaction.getCreditCardNumber());
 
                 // Add the new balance history entry to the credit card's list of balance history.
                 List<BalanceHistory> balanceHistoryList = creditCard.getBalanceHistory();
